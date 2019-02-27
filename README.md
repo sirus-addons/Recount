@@ -1,0 +1,2 @@
+# Recount
+Recount is a graphical damage meter written by Cryect. Recount (Preservation) is an attempt to preserve it through the 2.4 patch and fix up some minor things along the way. If Cryect returns the project really should be wholely his and he can keep or abandon any changes I've made here.
