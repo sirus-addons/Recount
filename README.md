@@ -1,2 +1,3 @@
-# Recount
-Recount is a graphical damage meter written by Cryect. Recount (Preservation) is an attempt to preserve it through the 2.4 patch and fix up some minor things along the way. If Cryect returns the project really should be wholely his and he can keep or abandon any changes I've made here.
+**Recount** - это графический счетчик урона, лечения, поглощения, смертей и т.д.
+
+*Спасибо игроку [Os](https://forum.sirus.su/members/17os86.175882/) за перевод описания на Русский Язык.*
