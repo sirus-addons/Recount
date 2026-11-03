@@ -1,9 +1,9 @@
 ﻿## Interface: 30300
 ## Title: Recount
-## Notes: |@Version: 1@|Records Damage and Healing for Graph Based Display
-## Notes-ruRU: |@Version: 1@|Записывает урон и исцеления и отоброжает различные графики
-## Notes-zhCN: |@Version: 1@|基于 Graph 裤开发的伤害/治疗统计插件
-## Notes-zhTW: |@Version: 1@|圖形化顯示的傷害/治療統計插件
+## Notes: |@Version: 2@|Records Damage and Healing for Graph Based Display
+## Notes-ruRU: |@Version: 2@|Записывает урон и исцеления и отоброжает различные графики
+## Notes-zhCN: |@Version: 2@|基于 Graph 裤开发的伤害/治疗统计插件
+## Notes-zhTW: |@Version: 2@|圖形化顯示的傷害/治療統計插件
 ## Author: Cryect, ported to 2.4 by Elsia
 ## OptionalDeps:  Ace3, LibSharedMedia-3.0, LibBossIDs-1.0, LibGraph-2.0, !ClassColors
 ## SavedVariables: RecountDB
