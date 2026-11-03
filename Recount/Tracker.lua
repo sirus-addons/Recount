@@ -328,6 +328,10 @@ local AbsorbSpellDuration =
 	[67260] = 15, -- 300000
 	[67259] = 15, -- 700000
 	[67261] = 15, -- 1200000
+	-- Sirus
+	[374839] = 30, -- Слезы феникса
+	[374840] = 30, -- Слёзы феникса
+	[319166] = 30,
 }
 
 local bossIDs = BossIDs.BossIDs
@@ -546,7 +550,62 @@ end
 -- Biffur: Keep track of active shields on each target
 local AllShields={}
 
+local PendingAbsorb = {}
+local PendingAbsorbTime = {}
+local ShieldedTargets = {}
+
+local DamageAbsorbedArg = {
+	SWING_DAMAGE = 6,
+	ENVIRONMENTAL_DAMAGE = 7,
+	SPELL_DAMAGE = 9,
+	SPELL_PERIODIC_DAMAGE = 9,
+	SPELL_BUILDING_DAMAGE = 9,
+	RANGE_DAMAGE = 9,
+	DAMAGE_SHIELD = 9,
+	DAMAGE_SPLIT = 9,
+}
+local MissTypeArg = {
+	SWING_MISSED = 1,
+	SPELL_MISSED = 4,
+	SPELL_PERIODIC_MISSED = 4,
+	RANGE_MISSED = 4,
+	DAMAGE_SHIELD_MISSED = 4,
+}
+
+local function AbsorbedFromEvent(eventtype, ...)
+	local n = DamageAbsorbedArg[eventtype]
+	if n then
+		return (select(n, ...))
+	end
+	n = MissTypeArg[eventtype]
+	if n and select(n, ...) == "ABSORB" then
+		return (select(n + 1, ...))
+	end
+end
+
+local function AddPendingAbsorb(victim, absorbed)
+	if type(absorbed) == "number" and absorbed > 0 then
+		local now = GetTime()
+		if not PendingAbsorb[victim] or now - PendingAbsorbTime[victim] > 2 then
+			PendingAbsorb[victim] = 0
+		end
+		PendingAbsorb[victim] = PendingAbsorb[victim] + absorbed
+		PendingAbsorbTime[victim] = now
+	end
+end
+
+local function CreditPendingAbsorb(srcName, dstName, spellName, spellId)
+	local absorb = PendingAbsorb[dstName]
+	if absorb and GetTime() - PendingAbsorbTime[dstName] <= 2 then
+		Recount:AddAbsorbCredit(srcName, dstName, spellName, spellId, absorb)
+	end
+	PendingAbsorb[dstName] = nil
+end
+
 function Recount:AddAbsorbCredit(source, victim, spellName, spellId, absorbed)
+	if not Recount.InCombat and Recount.db.profile.RecordCombatOnly then
+		return
+	end
 	Recount:DPrint("Absorb goes to "..source.." having used spell "..spellName.."("..spellId..")" ..":"..absorbed)
 	if not Recount.db2.combatants[source] then
 		Recount:DPrint("No source combatant!")
@@ -582,11 +641,18 @@ function Recount:SpellAuraApplied(timestamp, eventtype, srcGUID, srcName, srcFla
 			Recount:AddTableDataSum(sourceData,"ShieldedWho",dstName,spellName,1)
 		end
 
+	elseif AbsorbSpellDuration[spellId] then
+		PendingAbsorb[dstName] = nil
+		ShieldedTargets[dstName] = true
+		if Recount.db2.combatants[srcName] then
+			Recount:AddTableDataSum(Recount.db2.combatants[srcName],"ShieldedWho",dstName,spellName,1)
+		end
 	end
 end
 
 function Recount:SpellAuraRefresh(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType,amount)
 	if AbsorbSpellDuration[spellId] and amount then
+		PendingAbsorb[dstName] = nil
 		-- Yes? Update shield if it is tracked
 		if AllShields[dstName] and AllShields[dstName][spellId] and AllShields[dstName][spellId][srcName] then
 				Recount:DPrint("Updating " .. spellName .." from " .. dstName .. " at time ".. timestamp .. " old stamp was "..AllShields[dstName][spellId][srcName].." "..amount)
@@ -603,34 +669,41 @@ function Recount:SpellAuraRefresh(timestamp, eventtype, srcGUID, srcName, srcFla
 			Recount:DPrint("ORPHAN REFRESH FOUND! Rescuing")
 			Recount:SpellAuraApplied(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType, amount)
 		end
+	elseif AbsorbSpellDuration[spellId] then
+		ShieldedTargets[dstName] = true
+		CreditPendingAbsorb(srcName, dstName, spellName, spellId)
 	end
 end
 
-function Recount:SpellAuraRemoved(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType)
+function Recount:SpellAuraRemoved(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType, amount)
 
 	-- Spirit of Redemption and Shadow of Death handling
 	if spellId == 54223 or spellId == 27827 then
 		Recount:HandleDoubleDeath(srcName, dstName, spellName,srcGUID,srcFlags,dstGUID,dstFlags,spellId)		
 
 		-- Is this an absorb effect?
-	elseif AbsorbSpellDuration[spellId] and amount then
+	elseif AbsorbSpellDuration[spellId] and type(amount) == "number" then
+		PendingAbsorb[dstName] = nil
 		-- Yes? Lets remove it if it was tracked
 		if AllShields[dstName] and AllShields[dstName][spellId] and AllShields[dstName][spellId][srcName] then
 			
 			local absorb = AllShields[dstName][spellId][srcName] - amount
 			if absorb > 0 then
-				Recount:AddAbsorbCredit(source, victim, spellName, spellId, absorb)
+				Recount:AddAbsorbCredit(srcName, dstName, spellName, spellId, absorb)
 			end
 			AllShields[dstName][spellId][srcName]=0
 		else
 			Recount:DPrint("Shield "..spellName.." was removed on target "..dstName.." but wasn't detected as applied")
 		end
+	elseif AbsorbSpellDuration[spellId] then
+		CreditPendingAbsorb(srcName, dstName, spellName, spellId)
 	end
 end
 
 function Recount:SpellAuraAppliedRemovedDose(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType, amount)
--- Not sure yet how to handle this
-
+	if AbsorbSpellDuration[spellId] and amount then
+		Recount:SpellAuraRefresh(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType, amount)
+	end
 end
 
 function Recount:SpellCastStartSuccess(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool)
@@ -855,6 +928,9 @@ function Recount:CombatLogEvent(_,timestamp, eventtype, srcGUID, srcName, srcFla
 	dstRetention = Recount:CheckRetentionFromFlags(dstFlags,dstName,dstGUID)
  	
 	if not srcRetention and not dstRetention then
+		if ShieldedTargets[dstName] then
+			AddPendingAbsorb(dstName, AbsorbedFromEvent(eventtype, ...))
+		end
 		return
 	end
 	
@@ -1381,6 +1457,8 @@ end
 local dottime -- Duration of a dot
 local DPass -- nil or damage to record
 function Recount:AddDamageData(source, victim, ability, element, hittype, damage, resist, srcGUID, srcFlags, dstGUID, dstFlags, spellId, blocked, absorbed, isDot)
+
+	AddPendingAbsorb(victim, absorbed)
 
 	--Is this friendly fire?
 	local FriendlyFire = Recount:IsFriendlyFire(srcFlags,dstFlags)

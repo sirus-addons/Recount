@@ -388,7 +388,7 @@ function DataModes:Absorbs(data, num)
 	if num==1 then
 		return (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0), (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0)/((data.Fights[Recount.db.profile.CurDataSet].ActiveTime or 0) + Epsilon)
 	else
-		return (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0), {{data.Fights[Recount.db.profile.CurDataSet].Absorbed,L["'s Absorbs"],DetailTitles.Absorbed},{data.Fights[Recount.db.profile.CurDataSet].ShieldedWho," "..L["Shielded Who"],DetailTitles.ShieldedWho},{data.Fights[Recount.db.profile.CurDataSet].ShieldDamagedBy," "..L["Took Damage From"],DetailTitles.ShieldDamagedBy}}
+		return (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0), {{data.Fights[Recount.db.profile.CurDataSet].Absorbed,L["'s Absorbs"],DetailTitles.Absorbed},{data.Fights[Recount.db.profile.CurDataSet].ShieldedWho," "..L["Shielded Who"],DetailTitles.ShieldedWho}}
 	end
 end
 
