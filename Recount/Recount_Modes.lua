@@ -188,6 +188,17 @@ DetailTitles.ShieldedWho={
 	BotAmount = L["Count"]
 }
 
+DetailTitles.ShieldDamagedBy={
+	TopNames = L["Player/Mob Name"],
+	TopCount = L["Count"],
+	TopAmount = L["Damage"],
+	BotNames = L["Ability Name"],
+	BotMin = L["Min"],
+	BotAvg = L["Avg"],
+	BotMax = L["Max"],
+	BotAmount = L["Count"]
+}
+
 
 DetailTitles.Network={
 	TopNames = L["Prefix"],
@@ -388,7 +399,7 @@ function DataModes:Absorbs(data, num)
 	if num==1 then
 		return (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0), (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0)/((data.Fights[Recount.db.profile.CurDataSet].ActiveTime or 0) + Epsilon)
 	else
-		return (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0), {{data.Fights[Recount.db.profile.CurDataSet].Absorbed,L["'s Absorbs"],DetailTitles.Absorbed},{data.Fights[Recount.db.profile.CurDataSet].ShieldedWho," "..L["Shielded Who"],DetailTitles.ShieldedWho}}
+		return (data.Fights[Recount.db.profile.CurDataSet].Absorbs or 0), {{data.Fights[Recount.db.profile.CurDataSet].Absorbed,L["'s Absorbs"],DetailTitles.Absorbed},{data.Fights[Recount.db.profile.CurDataSet].ShieldedWho," "..L["Shielded Who"],DetailTitles.ShieldedWho},{data.Fights[Recount.db.profile.CurDataSet].ShieldDamagedBy," "..L["Took Damage From"],DetailTitles.ShieldDamagedBy}}
 	end
 end
 

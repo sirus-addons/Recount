@@ -2019,6 +2019,7 @@ function Recount:OnEnable(first)
 	
 	--Parser Events
 	Recount:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED","CombatLogEvent")
+	Recount:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED","AbsorbAmountChanged")
 	
 	if RecountDeathTrack then
 		RecountDeathTrack:SetFight(Recount.db.profile.CurDataSet)

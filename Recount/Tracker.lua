@@ -311,6 +311,7 @@ local AbsorbSpellDuration =
 	[37515] = 15, -- Warbringer Armor Proc
 	[42137] = 86400, -- Greater Rune of Warding Proc
 	[26467] = 30, -- Scarab Brooch proc
+	[26470] = 8,
 	[27539] = 6, -- Thick Obsidian Breatplate proc
 	[28810] = 30, -- Faith Set Proc Armor of Faith
 	[54808] = 12, -- Noise Machine proc Sonic Shield 
@@ -332,7 +333,16 @@ local AbsorbSpellDuration =
 	[374839] = 30, -- Слезы феникса
 	[374840] = 30, -- Слёзы феникса
 	[319166] = 30,
+	[310210] = 2,
+	[304736] = 8,
+	[305082] = 30,
+	[308143] = 30,
+	[307921] = 10,
+	[308125] = 10,
+	[308136] = 20,
+	[313530] = 12,
 }
+Recount.AbsorbSpellDuration = AbsorbSpellDuration
 
 local bossIDs = BossIDs.BossIDs
 
@@ -553,6 +563,11 @@ local AllShields={}
 local PendingAbsorb = {}
 local PendingAbsorbTime = {}
 local ShieldedTargets = {}
+local PendingAbsorbFrom = {}
+local AbsorbTotal = {}
+local AbsorbGrowTime = {}
+local ShieldSeenTime = {}
+local NewAura = {}
 
 local DamageAbsorbedArg = {
 	SWING_DAMAGE = 6,
@@ -583,26 +598,82 @@ local function AbsorbedFromEvent(eventtype, ...)
 	end
 end
 
-local function AddPendingAbsorb(victim, absorbed)
+local function AddPendingAbsorb(victim, absorbed, source)
 	if type(absorbed) == "number" and absorbed > 0 then
 		local now = GetTime()
 		if not PendingAbsorb[victim] or now - PendingAbsorbTime[victim] > 2 then
 			PendingAbsorb[victim] = 0
+			PendingAbsorbFrom[victim] = PendingAbsorbFrom[victim] or {}
+			wipe(PendingAbsorbFrom[victim])
 		end
 		PendingAbsorb[victim] = PendingAbsorb[victim] + absorbed
 		PendingAbsorbTime[victim] = now
+		source = source or "No One"
+		PendingAbsorbFrom[victim][source] = (PendingAbsorbFrom[victim][source] or 0) + absorbed
 	end
 end
 
 local function CreditPendingAbsorb(srcName, dstName, spellName, spellId)
 	local absorb = PendingAbsorb[dstName]
 	if absorb and GetTime() - PendingAbsorbTime[dstName] <= 2 then
-		Recount:AddAbsorbCredit(srcName, dstName, spellName, spellId, absorb)
+		Recount:AddAbsorbCredit(srcName, dstName, spellName, spellId, absorb, PendingAbsorbFrom[dstName])
 	end
 	PendingAbsorb[dstName] = nil
 end
 
-function Recount:AddAbsorbCredit(source, victim, spellName, spellId, absorbed)
+local function LearnShield(guid)
+	local aura, grow, seen = NewAura[guid], AbsorbGrowTime[guid], ShieldSeenTime[guid]
+	aura.pending = nil
+	if aura.spellId and grow and math_abs(grow - aura.time) <= 0.5 and not (seen and math_abs(grow - seen) <= 0.5) then
+		AbsorbSpellDuration[aura.spellId] = true
+		ShieldedTargets[aura.name] = true
+		if aura.applied and Recount.db2.combatants[aura.srcName] then
+			Recount:AddTableDataSum(Recount.db2.combatants[aura.srcName],"ShieldedWho",aura.name,aura.spellName,1)
+		end
+		aura.spellId = nil
+	end
+end
+
+local function CheckNewShield(guid)
+	local aura, grow = NewAura[guid], AbsorbGrowTime[guid]
+	if aura and aura.spellId and not aura.pending and grow and math_abs(grow - aura.time) <= 0.5 then
+		aura.pending = true
+		Recount:ScheduleTimer(LearnShield, 0.5, guid)
+	end
+end
+
+local function NoteAura(eventtype, srcName, dstGUID, dstName, spellId, spellName, auraType)
+	local now = GetTime()
+	if not dstGUID then
+		return
+	elseif AbsorbSpellDuration[spellId] then
+		ShieldSeenTime[dstGUID] = now
+	elseif auraType == "BUFF" then
+		local aura = NewAura[dstGUID] or {}
+		NewAura[dstGUID] = aura
+		if aura.spellId ~= nil and aura.spellId ~= spellId and now - aura.time <= 0.5 then
+			spellId = false
+		end
+		aura.spellId, aura.spellName, aura.srcName, aura.name, aura.time = spellId, spellName, srcName, dstName, now
+		aura.applied = eventtype == "SPELL_AURA_APPLIED"
+		CheckNewShield(dstGUID)
+	end
+end
+
+function Recount:AbsorbAmountChanged(event, unit)
+	local guid = UnitGUID(unit)
+	if not guid or unit ~= "player" and not unit:find("^party%d") and not unit:find("^raid%d") then
+		return
+	end
+	local total = UnitGetTotalAbsorbs(unit) or 0
+	if total > (AbsorbTotal[guid] or 0) then
+		AbsorbGrowTime[guid] = GetTime()
+		CheckNewShield(guid)
+	end
+	AbsorbTotal[guid] = total
+end
+
+function Recount:AddAbsorbCredit(source, victim, spellName, spellId, absorbed, attackers)
 	if not Recount.InCombat and Recount.db.profile.RecordCombatOnly then
 		return
 	end
@@ -613,6 +684,11 @@ function Recount:AddAbsorbCredit(source, victim, spellName, spellId, absorbed)
 		local sourceData=Recount.db2.combatants[source]
 		Recount:AddAmount(sourceData,"Absorbs",absorbed)
 		Recount:AddTableDataStats(sourceData,"Absorbed",spellName,victim,absorbed)
+		if attackers then
+			for attacker, amount in pairs(attackers) do
+				Recount:AddTableDataStats(sourceData,"ShieldDamagedBy",attacker,spellName,amount)
+			end
+		end
 
 		if Recount.db.profile.MergeAbsorbs then -- Elsia: This cannot be unsplit, but it saves memory.
 			Recount:AddTableDataStats(sourceData,"Heals",spellName,"Absorb",absorbed)
@@ -622,6 +698,7 @@ function Recount:AddAbsorbCredit(source, victim, spellName, spellId, absorbed)
 end
 
 function Recount:SpellAuraApplied(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType, amount)
+	NoteAura(eventtype, srcName, dstGUID, dstName, spellId, spellName, auraType)
 	-- Is this an absorb effect?
 	if AbsorbSpellDuration[spellId] and amount then
 		-- Yes? Add shield
@@ -651,6 +728,7 @@ function Recount:SpellAuraApplied(timestamp, eventtype, srcGUID, srcName, srcFla
 end
 
 function Recount:SpellAuraRefresh(timestamp, eventtype, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags,spellId, spellName, spellSchool, auraType,amount)
+	NoteAura(eventtype, srcName, dstGUID, dstName, spellId, spellName, auraType)
 	if AbsorbSpellDuration[spellId] and amount then
 		PendingAbsorb[dstName] = nil
 		-- Yes? Update shield if it is tracked
@@ -929,7 +1007,7 @@ function Recount:CombatLogEvent(_,timestamp, eventtype, srcGUID, srcName, srcFla
  	
 	if not srcRetention and not dstRetention then
 		if ShieldedTargets[dstName] then
-			AddPendingAbsorb(dstName, AbsorbedFromEvent(eventtype, ...))
+			AddPendingAbsorb(dstName, AbsorbedFromEvent(eventtype, ...), srcName)
 		end
 		return
 	end
@@ -1458,7 +1536,7 @@ local dottime -- Duration of a dot
 local DPass -- nil or damage to record
 function Recount:AddDamageData(source, victim, ability, element, hittype, damage, resist, srcGUID, srcFlags, dstGUID, dstFlags, spellId, blocked, absorbed, isDot)
 
-	AddPendingAbsorb(victim, absorbed)
+	AddPendingAbsorb(victim, absorbed, source)
 
 	--Is this friendly fire?
 	local FriendlyFire = Recount:IsFriendlyFire(srcFlags,dstFlags)
