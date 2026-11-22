@@ -2,6 +2,45 @@ local revision = tonumber(string.sub("$Revision: 1126 $", 12, -3))
 local Recount = _G.Recount
 if Recount.Version < revision then Recount.Version = revision end
 
+local Dragger = CreateFrame("Frame")
+Dragger:Hide()
+Dragger:SetScript("OnUpdate", function(self)
+	if not IsMouseButtonDown("LeftButton") then
+		self:Hide()
+		return
+	end
+	local frame = self.frame
+	local s = frame:GetEffectiveScale()
+	local x, y = GetCursorPosition()
+	x, y = (x - self.x) / s, (y - self.y) / s
+	frame:ClearAllPoints()
+	if self.point == "BOTTOMRIGHT" then
+		frame:SetWidth(math.min(math.max(self.width + x, self.minWidth), self.maxWidth))
+		frame:SetHeight(math.min(math.max(self.height - y, self.minHeight), self.maxHeight))
+		frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.left, self.top)
+	elseif self.point == "BOTTOMLEFT" then
+		frame:SetWidth(math.min(math.max(self.width - x, self.minWidth), self.maxWidth))
+		frame:SetHeight(math.min(math.max(self.height - y, self.minHeight), self.maxHeight))
+		frame:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", self.right, self.top)
+	else
+		frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.left + x, self.top + y)
+	end
+end)
+
+function Recount:StartDrag(frame, point)
+	Dragger.frame, Dragger.point = frame, point
+	Dragger.x, Dragger.y = GetCursorPosition()
+	Dragger.left, Dragger.right, Dragger.top = frame:GetLeft(), frame:GetRight(), frame:GetTop()
+	Dragger.width, Dragger.height = frame:GetWidth(), frame:GetHeight()
+	Dragger.minWidth, Dragger.minHeight = frame:GetMinResize()
+	Dragger.maxWidth, Dragger.maxHeight = frame:GetMaxResize()
+	Dragger:Show()
+end
+
+function Recount:StopDrag()
+	Dragger:Hide()
+end
+
 function Recount:CreateFrame(Name, Title, Height, Width, ShowFunc, HideFunc)
 	local theFrame=CreateFrame("Frame", Name,UIParent)
 

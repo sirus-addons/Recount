@@ -245,8 +245,8 @@ function me:CreateRealtimeWindow(who,tracking,ending) -- Elsia: This function cr
 	theFrame.DragBottomRight:SetHeight(16)
 	theFrame.DragBottomRight:SetPoint("BOTTOMRIGHT", theFrame, "BOTTOMRIGHT", 0, 0)
 	theFrame.DragBottomRight:EnableMouse(true)
-	theFrame.DragBottomRight:SetScript("OnMouseDown", function(this) if ((( not this:GetParent().isLocked ) or ( this:GetParent().isLocked == 0 ) ) and ( arg1 == "LeftButton" ) ) then this:GetParent().isResizing = true; this:GetParent():StartSizing("BOTTOMRIGHT") end end ) -- Elsia: Disallow resizing when locked
-	theFrame.DragBottomRight:SetScript("OnMouseUp", function(this) if this:GetParent().isResizing == true then this:GetParent():StopMovingOrSizing(); this:GetParent().isResizing = false;this:GetParent():SavePosition() end end )
+	theFrame.DragBottomRight:SetScript("OnMouseDown", function(this) if ((( not this:GetParent().isLocked ) or ( this:GetParent().isLocked == 0 ) ) and ( arg1 == "LeftButton" ) ) then this:GetParent().isResizing = true; Recount:StartDrag(this:GetParent(), "BOTTOMRIGHT") end end ) -- Elsia: Disallow resizing when locked
+	theFrame.DragBottomRight:SetScript("OnMouseUp", function(this) if this:GetParent().isResizing == true then Recount:StopDrag(); this:GetParent().isResizing = false;this:GetParent():SavePosition() end end )
 
 
 	theFrame.DragBottomLeft = CreateFrame("Button", nil, theFrame)
@@ -262,8 +262,8 @@ function me:CreateRealtimeWindow(who,tracking,ending) -- Elsia: This function cr
 	theFrame.DragBottomLeft:SetHeight(16)
 	theFrame.DragBottomLeft:SetPoint("BOTTOMLEFT", theFrame, "BOTTOMLEFT", 0, 0)
 	theFrame.DragBottomLeft:EnableMouse(true)
-	theFrame.DragBottomLeft:SetScript("OnMouseDown", function(this) if ((( not this:GetParent().isLocked ) or ( this:GetParent().isLocked == 0 ) ) and ( arg1 == "LeftButton" ) ) then this:GetParent().isResizing = true; this:GetParent():StartSizing("BOTTOMLEFT") end end ) -- Elsia: Disallow resizing when locked
-	theFrame.DragBottomLeft:SetScript("OnMouseUp", function(this) if this:GetParent().isResizing == true then this:GetParent():StopMovingOrSizing(); this:GetParent().isResizing = false;this:GetParent():SavePosition() end end )
+	theFrame.DragBottomLeft:SetScript("OnMouseDown", function(this) if ((( not this:GetParent().isLocked ) or ( this:GetParent().isLocked == 0 ) ) and ( arg1 == "LeftButton" ) ) then this:GetParent().isResizing = true; Recount:StartDrag(this:GetParent(), "BOTTOMLEFT") end end ) -- Elsia: Disallow resizing when locked
+	theFrame.DragBottomLeft:SetScript("OnMouseUp", function(this) if this:GetParent().isResizing == true then Recount:StopDrag(); this:GetParent().isResizing = false;this:GetParent():SavePosition() end end )
 
 	local g=Graph:CreateGraphRealtime("Recount_Realtime_"..who.."_"..tracking,theFrame,"BOTTOM","BOTTOM",0,2,197,199)
 	g:SetAutoScale(true)
